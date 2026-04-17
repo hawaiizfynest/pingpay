@@ -42,6 +42,13 @@ export default function Invoices() {
     } catch (err) { toast.error(err.message) }
   }
 
+  async function sendPaymentLink(inv) {
+    try {
+      await api.post(`/stripe/send-link/${inv.id}`)
+      toast.success("Payment link sent via SMS 💳")
+    } catch (err) { toast.error(err.message) }
+  }
+
   const filtered = filter === 'all' ? invoices : invoices.filter(i => i.status === filter)
   const totals = {
     pending: invoices.filter(i => i.status === 'pending').reduce((s, i) => s + i.amount, 0),
@@ -103,11 +110,14 @@ export default function Invoices() {
                   <td className="mono" style={{ fontSize: 12 }}>{inv.due_date}</td>
                   <td><span className={`badge ${STATUS_BADGE[inv.status]}`}>{inv.status}</span></td>
                   <td className="mono" style={{ fontSize: 11, color: 'var(--text3)' }}>{inv.paid_date || '—'}</td>
-                  <td style={{ fontSize: 12 }}>{inv.payment_method ? { zelle: '💳 Zelle', cash: '💵 Cash', apple_pay: '🍎 Apple Pay' }[inv.payment_method] : '—'}</td>
+                  <td style={{ fontSize: 12 }}>{inv.payment_method ? { zelle: '💳 Zelle', cash: '💵 Cash', apple_pay: '🍎 Apple Pay', card: '💳 Card' }[inv.payment_method] : '—'}</td>
                   <td>
-                    <div style={{ display: 'flex', gap: 6 }}>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                       {(inv.status === 'pending' || inv.status === 'overdue') && (
                         <button className="btn-success btn-sm" onClick={() => markPaid(inv)}>✓ Paid</button>
+                      )}
+                      {(inv.status === 'pending' || inv.status === 'overdue') && (
+                        <button className="btn-ghost btn-sm" style={{ color: 'var(--purple)', borderColor: 'rgba(167,139,250,0.3)' }} onClick={() => sendPaymentLink(inv)} title="Send card payment link via SMS">💳 Card Link</button>
                       )}
                       <button className="btn-danger btn-sm" onClick={() => deleteInv(inv)}>✕</button>
                     </div>

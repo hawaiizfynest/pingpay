@@ -23,6 +23,7 @@ app.use('/api/customers', require('./routes/customers'));
 app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/plans', require('./routes/plans'));
 app.use('/api/sms', require('./routes/sms'));
+app.use('/api/stripe', require('./routes/stripe'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));

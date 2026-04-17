@@ -222,3 +222,28 @@ function TwilioCard({ label, value, icon, mono, color, sub }) {
     </div>
   )
 }
+
+function StripeStatus() {
+  const [config, setConfig] = useState(null)
+  useEffect(() => {
+    api.get('/stripe/config').then(setConfig).catch(() => setConfig({ configured: false }))
+  }, [])
+
+  if (!config) return <span className="spinner" style={{ width: 14, height: 14 }} />
+
+  if (!config.configured) {
+    return (
+      <div style={{ background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 6, padding: '14px 16px', fontSize: 13, color: 'var(--purple)' }}>
+        ◎ Stripe not configured — add your keys to .env to enable card payments
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <TwilioCard label="Card Payments" value="Active" icon="💳" color="var(--green)" />
+      <TwilioCard label="Webhook" value={config.webhook_configured ? 'Configured' : 'Not set'} icon="⚡" color={config.webhook_configured ? 'var(--green)' : 'var(--yellow)'} sub={!config.webhook_configured ? 'Auto-pay on card payment won\'t work without webhook' : null} />
+    </div>
+  )
+}
+

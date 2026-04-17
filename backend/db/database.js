@@ -61,6 +61,7 @@ function initSchema(db) {
       paid_date TEXT,
       status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','paid','overdue','waived')),
       payment_method TEXT,
+      stripe_session_id TEXT,
       notes TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
