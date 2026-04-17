@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
 const { getDb } = require('./db/database');
 const { startJobs } = require('./jobs/scheduler');
@@ -12,6 +13,7 @@ const PORT = process.env.PORT || 3500;
 // Middleware
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
+app.use(cookieParser());
 app.use(express.urlencoded({ extended: true }));
 
 // Rate limiting

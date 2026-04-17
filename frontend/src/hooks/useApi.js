@@ -1,15 +1,15 @@
 const BASE = import.meta.env.VITE_API_URL || '/api';
 
 export function getToken() {
-  return localStorage.getItem('pingpay_token');
+  return localStorage.getItem('nasbill_token');
 }
 
 export function setToken(token) {
-  localStorage.setItem('pingpay_token', token);
+  localStorage.setItem('nasbill_token', token);
 }
 
 export function clearToken() {
-  localStorage.removeItem('pingpay_token');
+  localStorage.removeItem('nasbill_token');
 }
 
 async function req(method, path, body) {
@@ -20,6 +20,7 @@ async function req(method, path, body) {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+    credentials: 'include', // Send httpOnly cookies
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
 
@@ -32,7 +33,11 @@ async function req(method, path, body) {
   }
 
   const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Request failed');
+  if (!res.ok) {
+    const err = new Error(data.error || 'Request failed');
+    err.attemptsLeft = data.attemptsLeft;
+    throw err;
+  }
   return data;
 }
 
