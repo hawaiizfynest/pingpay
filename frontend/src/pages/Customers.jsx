@@ -205,6 +205,7 @@ function CustomerModal({ customer, plans, onClose, onSave }) {
                 <option value="zelle">Zelle</option>
                 <option value="apple_pay">Apple Pay</option>
                 <option value="cash">Cash</option>
+                <option value="card">Card (Stripe)</option>
               </select>
             </div>
           </div>
