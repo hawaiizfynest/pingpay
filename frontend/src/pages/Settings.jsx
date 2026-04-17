@@ -171,6 +171,24 @@ export default function Settings() {
         </button>
       </div>
 
+
+      <section style={{ marginBottom: 32 }}>
+        <h3 style={{ color: 'var(--text2)', marginBottom: 16, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+          Stripe — Card Payments
+        </h3>
+        <StripeStatus />
+        <div style={{ marginTop: 14, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: 16, fontSize: 12, color: 'var(--text3)' }}>
+          <p style={{ marginBottom: 8 }}>Add to your <span style={{ fontFamily: 'var(--mono)' }}>.env</span> file:</p>
+          <pre style={{ fontFamily: 'var(--mono)', fontSize: 11, lineHeight: 1.8, color: 'var(--text2)' }}>
+{`STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxxxxxxxxxx
+STRIPE_PUBLISHABLE_KEY=pk_live_xxxxxxxxxxxxxxxxxxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxx`}
+          </pre>
+          <p style={{ marginTop: 10 }}>Set Stripe webhook to: <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent)' }}>https://your-domain.com/api/stripe/webhook</span></p>
+          <p style={{ marginTop: 6 }}>Webhook event: <span style={{ fontFamily: 'var(--mono)', color: 'var(--purple)' }}>checkout.session.completed</span></p>
+        </div>
+      </section>
+
       <section style={{ marginBottom: 32 }}>
         <h3 style={{ color: 'var(--text2)', marginBottom: 16, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>Change Password</h3>
         <div className="form-grid" style={{ gap: 14, maxWidth: 400 }}>
