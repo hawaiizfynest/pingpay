@@ -62,7 +62,7 @@ router.post('/login', async (req, res) => {
   if (isLocked(username)) {
     const mins = lockoutMinutesRemaining(username);
     console.warn(`[Auth] Locked account login attempt: ${username}`);
-    return res.status(429).json({ error: `Account locked due to too many failed attempts. Try again in ${mins} minute${mins !== 1 ? 's' : ''}.` });
+    return res.status(429).json({ error: `Account locked due to too many failed attempts. Try again in ${mins} minute${mins !== 1 ? 's' : ''}.`, attemptsLeft: 0 });
   }
 
   const db = getDb();
