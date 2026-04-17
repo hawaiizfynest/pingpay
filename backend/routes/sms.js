@@ -69,6 +69,39 @@ router.put('/settings', auth, (req, res) => {
   res.json({ success: true });
 });
 
+// GET Twilio account info (phone number + wallet balance)
+router.get('/twilio-info', auth, async (req, res) => {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const number = process.env.TWILIO_PHONE_NUMBER;
+
+  if (!sid || !token) {
+    return res.json({ configured: false });
+  }
+
+  try {
+    const client = twilio(sid, token);
+
+    // Fetch balance and account info in parallel
+    const [balance, account] = await Promise.all([
+      client.balance.fetch(),
+      client.api.accounts(sid).fetch(),
+    ]);
+
+    res.json({
+      configured: true,
+      phone_number: number || null,
+      balance: parseFloat(balance.balance).toFixed(2),
+      currency: balance.currency,
+      account_name: account.friendlyName,
+      account_status: account.status,
+    });
+  } catch (err) {
+    console.error('Twilio info fetch error:', err.message);
+    res.json({ configured: true, error: err.message });
+  }
+});
+
 // GET dashboard stats
 router.get('/dashboard', auth, (req, res) => {
   const db = getDb();

@@ -8,13 +8,14 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
   const [pw, setPw] = useState({ current: '', new: '', confirm: '' })
   const [changingPw, setChangingPw] = useState(false)
+  const [twilioInfo, setTwilioInfo] = useState(null)
+  const [twilioLoading, setTwilioLoading] = useState(true)
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(); loadTwilioInfo() }, [])
 
   async function load() {
     try {
       const s = await api.get('/sms/settings')
-      // Parse reminder_days if JSON
       if (s.reminder_days) {
         try { s.reminder_days = JSON.parse(s.reminder_days).join(', ') } catch {}
       }
@@ -23,10 +24,20 @@ export default function Settings() {
     finally { setLoading(false) }
   }
 
+  async function loadTwilioInfo() {
+    try {
+      const info = await api.get('/sms/twilio-info')
+      setTwilioInfo(info)
+    } catch (err) {
+      setTwilioInfo({ error: err.message })
+    } finally {
+      setTwilioLoading(false)
+    }
+  }
+
   async function save() {
     setSaving(true)
     try {
-      // Convert reminder_days back to JSON array
       const payload = { ...settings }
       if (payload.reminder_days) {
         const days = payload.reminder_days.split(',').map(d => parseInt(d.trim())).filter(Boolean)
@@ -62,11 +73,51 @@ export default function Settings() {
       </div>
 
       <section style={{ marginBottom: 32 }}>
+        <h3 style={{ color: 'var(--text2)', marginBottom: 16, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+          Twilio Account
+        </h3>
+        {twilioLoading ? (
+          <div style={{ padding: '20px 0' }}><span className="spinner" /></div>
+        ) : !twilioInfo?.configured ? (
+          <div style={{ background: 'rgba(255,200,74,0.06)', border: '1px solid rgba(255,200,74,0.2)', borderRadius: 6, padding: '14px 16px', fontSize: 13, color: 'var(--yellow)' }}>
+            ⚠ Twilio credentials not configured. Add TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN to your .env file.
+          </div>
+        ) : twilioInfo?.error ? (
+          <div style={{ background: 'rgba(255,74,110,0.06)', border: '1px solid rgba(255,74,110,0.2)', borderRadius: 6, padding: '14px 16px', fontSize: 13, color: 'var(--red)' }}>
+            ✕ Failed to fetch Twilio info: {twilioInfo.error}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <TwilioCard label="SMS Phone Number" value={twilioInfo.phone_number || '—'} icon="📲" mono />
+            <TwilioCard
+              label="Account Balance"
+              value={twilioInfo.balance ? `$${twilioInfo.balance} ${twilioInfo.currency?.toUpperCase()}` : '—'}
+              icon="💰"
+              color={parseFloat(twilioInfo.balance) < 5 ? 'var(--red)' : parseFloat(twilioInfo.balance) < 15 ? 'var(--yellow)' : 'var(--green)'}
+              sub={parseFloat(twilioInfo.balance) < 5 ? '⚠ Low balance — top up soon' : parseFloat(twilioInfo.balance) < 15 ? 'Balance getting low' : null}
+            />
+            <TwilioCard label="Account Name" value={twilioInfo.account_name || '—'} icon="👤" />
+            <TwilioCard
+              label="Account Status"
+              value={twilioInfo.account_status ? twilioInfo.account_status.charAt(0).toUpperCase() + twilioInfo.account_status.slice(1) : '—'}
+              icon="◉"
+              color={twilioInfo.account_status === 'active' ? 'var(--green)' : 'var(--yellow)'}
+            />
+          </div>
+        )}
+        {!twilioLoading && twilioInfo?.configured && !twilioInfo?.error && (
+          <button className="btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={() => { setTwilioLoading(true); loadTwilioInfo() }}>
+            ↺ Refresh
+          </button>
+        )}
+      </section>
+
+      <section style={{ marginBottom: 32 }}>
         <h3 style={{ color: 'var(--text2)', marginBottom: 16, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>Business Info</h3>
         <div className="form-grid" style={{ gap: 14 }}>
           <div className="form-group">
             <label>Business Name</label>
-            <input value={settings.business_name || ''} onChange={e => set('business_name', e.target.value)} placeholder="My PingPay" />
+            <input value={settings.business_name || ''} onChange={e => set('business_name', e.target.value)} placeholder="My NAS Services" />
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Appears in all SMS messages sent to customers</div>
           </div>
           <div className="form-grid form-grid-2">
@@ -85,7 +136,7 @@ export default function Settings() {
       <section style={{ marginBottom: 32 }}>
         <h3 style={{ color: 'var(--text2)', marginBottom: 16, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>Payment Instructions</h3>
         <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
-          These are sent to customers when they reply <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent)', background: 'rgba(0,212,255,0.08)', padding: '1px 6px', borderRadius: 3 }}>PAY</span> — include your handle/address/instructions.
+          These are sent to customers when they reply <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent)', background: 'rgba(0,212,255,0.08)', padding: '1px 6px', borderRadius: 3 }}>PAY</span>
         </div>
         <div className="form-grid" style={{ gap: 14 }}>
           <div className="form-group">
@@ -109,7 +160,7 @@ export default function Settings() {
           <label>Send reminders X days before due</label>
           <input value={settings.reminder_days || '7, 3, 1'} onChange={e => set('reminder_days', e.target.value)} placeholder="7, 3, 1" />
           <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
-            Comma-separated list. Example: <span style={{ fontFamily: 'var(--mono)' }}>7, 3, 1</span> sends reminders 7 days, 3 days, and 1 day before the due date.
+            Comma-separated. Example: <span style={{ fontFamily: 'var(--mono)' }}>7, 3, 1</span>
           </div>
         </div>
       </section>
@@ -146,14 +197,28 @@ export default function Settings() {
         <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: 16, fontSize: 12, color: 'var(--text3)' }}>
           <p style={{ marginBottom: 8 }}>Configure in your <span style={{ fontFamily: 'var(--mono)' }}>.env</span> file:</p>
           <pre style={{ fontFamily: 'var(--mono)', fontSize: 11, lineHeight: 1.8, color: 'var(--text2)' }}>
-{`TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxx
+{`TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN=your_auth_token
 TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
 PUBLIC_URL=https://your-domain.com`}
           </pre>
-          <p style={{ marginTop: 10 }}>Set Twilio inbound webhook to: <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent)' }}>https://your-domain.com/api/sms/inbound</span></p>
+          <p style={{ marginTop: 10 }}>Inbound webhook: <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent)' }}>https://your-domain.com/api/sms/inbound</span></p>
         </div>
       </section>
+    </div>
+  )
+}
+
+function TwilioCard({ label, value, icon, mono, color, sub }) {
+  return (
+    <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: '14px 16px' }}>
+      <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text3)', marginBottom: 8 }}>
+        {icon} {label}
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 600, fontFamily: mono ? 'var(--mono)' : 'var(--sans)', color: color || 'var(--text)', letterSpacing: mono ? '0.02em' : 'normal' }}>
+        {value}
+      </div>
+      {sub && <div style={{ fontSize: 11, color: color || 'var(--text3)', marginTop: 4 }}>{sub}</div>}
     </div>
   )
 }
