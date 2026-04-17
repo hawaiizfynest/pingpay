@@ -7,7 +7,7 @@ const STATUS_BADGE = {
   suspended: 'badge-yellow',
   cancelled: 'badge-gray',
 }
-const METHOD_LABEL = { zelle: '💳 Zelle', cash: '💵 Cash', apple_pay: '🍎 Apple Pay' }
+const METHOD_LABEL = { zelle: '💳 Zelle', cash: '💵 Cash', apple_pay: '🍎 Apple Pay', card: '💳 Card (Stripe)' }
 
 function normalizePhone(raw) {
   const digits = raw.replace(/\D/g, '')

@@ -132,15 +132,18 @@ async function handlePayInstructions(customer, settings) {
   let msg = `💳 *${settings.business_name} — Payment*\n\n`;
   msg += `Hi ${customer.name}, here's how to pay:\n\n`;
 
-  if (method === 'zelle' || !method) {
+  if (method === 'card') {
+    msg += `💳 Card Payment: We'll send you a secure payment link shortly.\nReply BALANCE to check your balance.`;
+  } else if (method === 'zelle' || !method) {
     msg += `📲 Zelle: ${settings.zelle_info}\n`;
+    msg += `\nPlease include your name in the payment note. Reply BALANCE to confirm once sent.`;
   } else if (method === 'apple_pay') {
     msg += `🍎 Apple Pay: ${settings.apple_pay_info}\n`;
+    msg += `\nPlease include your name in the payment note. Reply BALANCE to confirm once sent.`;
   } else if (method === 'cash') {
     msg += `💵 Cash: ${settings.cash_info}\n`;
+    msg += `\nReply BALANCE to confirm once received.`;
   }
-
-  msg += `\nPlease include your name in the payment note. Reply BALANCE to confirm once sent.`;
 
   return sendSms(customer.phone, msg, customer.id);
 }
