@@ -1,0 +1,37 @@
+# === Environment / Secrets ===
+.env
+.env.local
+.env.production
+backend/.env
+backend/.env.local
+
+# === Dependencies ===
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# === Database ===
+*.db
+*.db-shm
+*.db-wal
+data/
+
+# === Frontend Build ===
+frontend/dist/
+frontend/.vite/
+
+# === Logs ===
+*.log
+npm-debug.log*
+logs/
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Editor ===
+.vscode/
+.idea/
+*.swp
+*.swo

@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  pingpay-nginx:
+    image: nginx:alpine
+    container_name: pingpay-nginx
+    ports:
+      - "3500:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - pingpay-backend
+      - pingpay-frontend
+    restart: unless-stopped
+    networks:
+      - pingpay-net
+
+  pingpay-backend:
+    image: node:20-alpine
+    container_name: pingpay-backend
+    working_dir: /app
+    command: sh -c "npm install && node server.js"
+    volumes:
+      - ./backend:/app
+      - pingpay-data:/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DB_PATH=/data/pingpay.db
+      - JWT_SECRET=${JWT_SECRET}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - PUBLIC_URL=https://pingpay.cc
+      - CORS_ORIGIN=https://pingpay.cc
+    restart: unless-stopped
+    networks:
+      - pingpay-net
+
+  pingpay-frontend:
+    image: node:20-alpine
+    container_name: pingpay-frontend
+    working_dir: /app
+    command: sh -c "npm install && npm run build && npx serve -s dist -l 3002"
+    volumes:
+      - ./frontend:/app
+    environment:
+      - VITE_API_URL=/api
+    depends_on:
+      - pingpay-backend
+    restart: unless-stopped
+    networks:
+      - pingpay-net
+
+volumes:
+  pingpay-data:
+
+networks:
+  pingpay-net:
+    driver: bridge
