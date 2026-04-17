@@ -1,7 +1,7 @@
 # PingPay — SMS Billing System
 
 A self-hosted billing and SMS reminder system for NAS service providers. Customers interact entirely through text messages — no app or account needed. You manage everything through a private admin panel.
-
+ 
 ---
 
 ## Features
