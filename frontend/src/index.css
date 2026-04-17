@@ -182,3 +182,90 @@ tr:hover td { background: var(--bg3); }
 .dot-yellow { background: var(--yellow); }
 .dot-red { background: var(--red); }
 .dot-gray { background: var(--text3); }
+
+/* ============================================
+   RESPONSIVE / MOBILE STYLES
+   ============================================ */
+
+/* Prevent iOS zoom on input focus */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Collapse 2-col and 3-col form grids on mobile */
+@media (max-width: 600px) {
+  .form-grid-2,
+  .form-grid-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Stat grid — 2 columns on mobile */
+  .stat-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+
+  .stat-value { font-size: 1.4rem; }
+
+  /* Page header — stack on mobile */
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  /* Tables — horizontal scroll */
+  .card table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  /* Modals — full screen on mobile */
+  .modal-overlay {
+    align-items: flex-end;
+  }
+
+  .modal {
+    max-width: 100% !important;
+    max-height: 92vh;
+    border-radius: 16px 16px 0 0;
+    padding: 20px 16px;
+    animation: slideUpMobile 0.25s ease;
+  }
+
+  @keyframes slideUpMobile {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+  }
+
+  /* Modal footer buttons stack */
+  .modal-footer {
+    flex-direction: column-reverse;
+  }
+
+  .modal-footer button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Buttons full width in modal footer */
+  .btn-sm {
+    padding: 7px 12px;
+  }
+
+  /* Reduce card padding */
+  .card {
+    padding: 14px;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 380px) {
+  .stat-grid {
+    grid-template-columns: 1fr;
+  }
+}

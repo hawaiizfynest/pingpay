@@ -76,3 +76,10 @@
   font-size: 14px;
   margin-top: 4px;
 }
+
+@media (max-width: 600px) {
+  .login-card {
+    margin: 16px;
+    padding: 28px 20px;
+  }
+}
