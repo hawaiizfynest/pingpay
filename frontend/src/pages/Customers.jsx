@@ -9,6 +9,14 @@ const STATUS_BADGE = {
 }
 const METHOD_LABEL = { zelle: '💳 Zelle', cash: '💵 Cash', apple_pay: '🍎 Apple Pay' }
 
+function normalizePhone(raw) {
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length === 10) return `+1${digits}`
+  if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
+  if (digits.length > 0) return `+${digits}`
+  return raw
+}
+
 export default function Customers() {
   const [customers, setCustomers] = useState([])
   const [plans, setPlans] = useState([])
@@ -144,10 +152,13 @@ function CustomerModal({ customer, plans, onClose, onSave }) {
 
   async function handleSave() {
     if (!form.name || !form.phone) return toast.error('Name and phone required')
+    const normalized = normalizePhone(form.phone)
+    if (normalized.length < 10) return toast.error('Invalid phone number')
     setSaving(true)
     try {
-      if (isEdit) await api.put(`/customers/${customer.id}`, form)
-      else await api.post('/customers', form)
+      const payload = { ...form, phone: normalized }
+      if (isEdit) await api.put(`/customers/${customer.id}`, payload)
+      else await api.post('/customers', payload)
       toast.success(isEdit ? 'Customer updated' : 'Customer added')
       onSave()
     } catch (err) { toast.error(err.message) }
@@ -170,7 +181,8 @@ function CustomerModal({ customer, plans, onClose, onSave }) {
             </div>
             <div className="form-group">
               <label>Phone *</label>
-              <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+1 555-000-0000" />
+              <input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="720-555-0000" />
+              {form.phone && <div style={{ fontSize: 11, color: 'var(--accent)', marginTop: 4, fontFamily: 'var(--mono)' }}>→ {normalizePhone(form.phone)}</div>}
             </div>
           </div>
 

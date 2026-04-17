@@ -8,6 +8,7 @@ services:
       - "3500:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/public:/static:ro
     depends_on:
       - pingpay-backend
       - pingpay-frontend
@@ -29,6 +30,9 @@ services:
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_PUBLISHABLE_KEY=${STRIPE_PUBLISHABLE_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
       - PUBLIC_URL=${PUBLIC_URL}
       - CORS_ORIGIN=${CORS_ORIGIN}
     restart: unless-stopped

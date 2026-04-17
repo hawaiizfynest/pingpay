@@ -20,6 +20,8 @@ async function sendSms(to, body, customerId = null) {
   const db = getDb();
   const normalized = normalizePhone(to);
 
+  console.log(`[SMS] Sending to ${normalized} from ${process.env.TWILIO_PHONE_NUMBER}`);
+
   try {
     const msg = await getTwilioClient().messages.create({
       body,
@@ -27,12 +29,14 @@ async function sendSms(to, body, customerId = null) {
       to: normalized,
     });
 
+    console.log(`[SMS] Sent OK — SID: ${msg.sid} Status: ${msg.status}`);
     db.prepare(`INSERT INTO sms_log (customer_id, direction, phone, message, twilio_sid) VALUES (?, 'outbound', ?, ?, ?)`)
       .run(customerId, normalized, body, msg.sid);
 
     return { success: true, sid: msg.sid };
   } catch (err) {
-    console.error('SMS send error:', err.message);
+    console.error(`[SMS] SEND FAILED to ${normalized} — Code: ${err.code} Status: ${err.status} Message: ${err.message}`);
+    if (err.moreInfo) console.error(`[SMS] More info: ${err.moreInfo}`);
     db.prepare(`INSERT INTO sms_log (customer_id, direction, phone, message) VALUES (?, 'outbound', ?, ?, NULL)`)
       .run(customerId, normalized, body);
     throw err;
