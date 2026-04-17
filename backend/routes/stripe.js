@@ -6,8 +6,10 @@ const { sendPaymentConfirmation } = require('../services/smsService');
 const router = express.Router();
 
 function getStripe() {
-  if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe not configured');
-  return require('stripe')(process.env.STRIPE_SECRET_KEY);
+  const { getCredential } = require('../services/credentials');
+  const key = getCredential('cred_stripe_secret', 'STRIPE_SECRET_KEY');
+  if (!key) throw new Error('Stripe not configured');
+  return require('stripe')(key);
 }
 
 // POST — create a Stripe checkout session for an invoice
@@ -130,7 +132,8 @@ router.post('/send-link/:invoiceId', auth, async (req, res) => {
 // POST — Stripe webhook (raw body required)
 router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const { getCredential } = require('../services/credentials');
+  const webhookSecret = getCredential('cred_stripe_webhook', 'STRIPE_WEBHOOK_SECRET');
 
   let event;
   try {
@@ -187,10 +190,14 @@ async function handleStripePayment(session) {
 
 // GET — Stripe config check
 router.get('/config', auth, (req, res) => {
+  const { getCredential } = require('../services/credentials');
+  const secretKey = getCredential('cred_stripe_secret', 'STRIPE_SECRET_KEY');
+  const pubKey = getCredential('cred_stripe_publishable', 'STRIPE_PUBLISHABLE_KEY');
+  const webhookSecret = getCredential('cred_stripe_webhook', 'STRIPE_WEBHOOK_SECRET');
   res.json({
-    configured: !!(process.env.STRIPE_SECRET_KEY && process.env.STRIPE_PUBLISHABLE_KEY),
-    publishable_key: process.env.STRIPE_PUBLISHABLE_KEY || null,
-    webhook_configured: !!process.env.STRIPE_WEBHOOK_SECRET,
+    configured: !!(secretKey && pubKey),
+    publishable_key: pubKey || null,
+    webhook_configured: !!webhookSecret,
   });
 });
 

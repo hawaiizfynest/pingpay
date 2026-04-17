@@ -71,9 +71,10 @@ router.put('/settings', auth, (req, res) => {
 
 // GET Twilio account info (phone number + wallet balance)
 router.get('/twilio-info', auth, async (req, res) => {
-  const sid = process.env.TWILIO_ACCOUNT_SID;
-  const token = process.env.TWILIO_AUTH_TOKEN;
-  const number = process.env.TWILIO_PHONE_NUMBER;
+  const { getCredential } = require('../services/credentials');
+  const sid = getCredential('cred_twilio_sid', 'TWILIO_ACCOUNT_SID');
+  const token = getCredential('cred_twilio_token', 'TWILIO_AUTH_TOKEN');
+  const number = getCredential('cred_twilio_number', 'TWILIO_PHONE_NUMBER');
 
   if (!sid || !token) {
     return res.json({ configured: false });
@@ -116,6 +117,34 @@ router.get('/dashboard', auth, (req, res) => {
     recent_sms: db.prepare(`SELECT COUNT(*) as n FROM sms_log WHERE created_at > datetime('now', '-24 hours')`).get().n,
   };
   res.json(stats);
+});
+
+// GET credentials (masked for display)
+router.get('/credentials', auth, (req, res) => {
+  const { getCredential, maskCredential } = require('../services/credentials');
+  res.json({
+    twilio_sid: maskCredential(getCredential('cred_twilio_sid', 'TWILIO_ACCOUNT_SID')),
+    twilio_token: maskCredential(getCredential('cred_twilio_token', 'TWILIO_AUTH_TOKEN')),
+    twilio_number: getCredential('cred_twilio_number', 'TWILIO_PHONE_NUMBER'),
+    stripe_secret: maskCredential(getCredential('cred_stripe_secret', 'STRIPE_SECRET_KEY')),
+    stripe_publishable: maskCredential(getCredential('cred_stripe_publishable', 'STRIPE_PUBLISHABLE_KEY')),
+    stripe_webhook: maskCredential(getCredential('cred_stripe_webhook', 'STRIPE_WEBHOOK_SECRET')),
+  });
+});
+
+// PUT credentials (only saves non-empty values)
+router.put('/credentials', auth, (req, res) => {
+  const { saveCredentials } = require('../services/credentials');
+  const { twilio_sid, twilio_token, twilio_number, stripe_secret, stripe_publishable, stripe_webhook } = req.body;
+  const toSave = {};
+  if (twilio_sid && !twilio_sid.includes('•')) toSave.cred_twilio_sid = twilio_sid;
+  if (twilio_token && !twilio_token.includes('•')) toSave.cred_twilio_token = twilio_token;
+  if (twilio_number) toSave.cred_twilio_number = twilio_number;
+  if (stripe_secret && !stripe_secret.includes('•')) toSave.cred_stripe_secret = stripe_secret;
+  if (stripe_publishable && !stripe_publishable.includes('•')) toSave.cred_stripe_publishable = stripe_publishable;
+  if (stripe_webhook && !stripe_webhook.includes('•')) toSave.cred_stripe_webhook = stripe_webhook;
+  saveCredentials(toSave);
+  res.json({ success: true, saved: Object.keys(toSave) });
 });
 
 module.exports = router;

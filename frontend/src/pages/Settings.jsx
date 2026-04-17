@@ -79,15 +79,15 @@ export default function Settings() {
         {twilioLoading ? (
           <div style={{ padding: '20px 0' }}><span className="spinner" /></div>
         ) : !twilioInfo?.configured ? (
-          <div style={{ background: 'rgba(255,200,74,0.06)', border: '1px solid rgba(255,200,74,0.2)', borderRadius: 6, padding: '14px 16px', fontSize: 13, color: 'var(--yellow)' }}>
-            ⚠ Twilio credentials not configured. Add TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN to your .env file.
+          <div style={{ background: 'rgba(255,200,74,0.06)', border: '1px solid rgba(255,200,74,0.2)', borderRadius: 6, padding: '14px 16px', fontSize: 13, color: 'var(--yellow)', marginBottom: 16 }}>
+            ⚠ Twilio credentials not configured — enter them below and save.
           </div>
         ) : twilioInfo?.error ? (
-          <div style={{ background: 'rgba(255,74,110,0.06)', border: '1px solid rgba(255,74,110,0.2)', borderRadius: 6, padding: '14px 16px', fontSize: 13, color: 'var(--red)' }}>
-            ✕ Failed to fetch Twilio info: {twilioInfo.error}
+          <div style={{ background: 'rgba(255,74,110,0.06)', border: '1px solid rgba(255,74,110,0.2)', borderRadius: 6, padding: '14px 16px', fontSize: 13, color: 'var(--red)', marginBottom: 16 }}>
+            ✕ {twilioInfo.error}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
             <TwilioCard label="SMS Phone Number" value={twilioInfo.phone_number || '—'} icon="📲" mono />
             <TwilioCard
               label="Account Balance"
@@ -106,10 +106,11 @@ export default function Settings() {
           </div>
         )}
         {!twilioLoading && twilioInfo?.configured && !twilioInfo?.error && (
-          <button className="btn-ghost btn-sm" style={{ marginTop: 12 }} onClick={() => { setTwilioLoading(true); loadTwilioInfo() }}>
-            ↺ Refresh
+          <button className="btn-ghost btn-sm" style={{ marginBottom: 16 }} onClick={() => { setTwilioLoading(true); loadTwilioInfo() }}>
+            ↺ Refresh Balance
           </button>
         )}
+        <CredentialEditor section="twilio" onSaved={() => { setTwilioLoading(true); loadTwilioInfo(); }} />
       </section>
 
       <section style={{ marginBottom: 32 }}>
@@ -177,15 +178,12 @@ export default function Settings() {
           Stripe — Card Payments
         </h3>
         <StripeStatus />
+        <div style={{ marginTop: 16 }}>
+          <CredentialEditor section="stripe" onSaved={() => {}} />
+        </div>
         <div style={{ marginTop: 14, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: 16, fontSize: 12, color: 'var(--text3)' }}>
-          <p style={{ marginBottom: 8 }}>Add to your <span style={{ fontFamily: 'var(--mono)' }}>.env</span> file:</p>
-          <pre style={{ fontFamily: 'var(--mono)', fontSize: 11, lineHeight: 1.8, color: 'var(--text2)' }}>
-{`STRIPE_SECRET_KEY=sk_live_xxxxxxxxxxxxxxxxxxxx
-STRIPE_PUBLISHABLE_KEY=pk_live_xxxxxxxxxxxxxxxxxxxx
-STRIPE_WEBHOOK_SECRET=whsec_xxxxxxxxxxxxxxxxxxxx`}
-          </pre>
-          <p style={{ marginTop: 10 }}>Set Stripe webhook to: <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent)' }}>https://your-domain.com/api/stripe/webhook</span></p>
-          <p style={{ marginTop: 6 }}>Webhook event: <span style={{ fontFamily: 'var(--mono)', color: 'var(--purple)' }}>checkout.session.completed</span></p>
+          <p style={{ marginBottom: 6 }}>Webhook URL: <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent)' }}>https://your-domain.com/api/stripe/webhook</span></p>
+          <p>Webhook event: <span style={{ fontFamily: 'var(--mono)', color: 'var(--purple)' }}>checkout.session.completed</span></p>
         </div>
       </section>
 
@@ -261,6 +259,99 @@ function StripeStatus() {
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
       <TwilioCard label="Card Payments" value="Active" icon="💳" color="var(--green)" />
       <TwilioCard label="Webhook" value={config.webhook_configured ? 'Configured' : 'Not set'} icon="⚡" color={config.webhook_configured ? 'var(--green)' : 'var(--yellow)'} sub={!config.webhook_configured ? 'Auto-pay on card payment won\'t work without webhook' : null} />
+    </div>
+  )
+}
+
+
+function CredentialEditor({ section, onSaved }) {
+  const isTwilio = section === 'twilio'
+  const [creds, setCreds] = useState(null)
+  const [form, setForm] = useState({})
+  const [show, setShow] = useState({})
+  const [saving, setSaving] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+
+  useEffect(() => {
+    api.get('/sms/credentials').then(data => {
+      setCreds(data)
+      if (isTwilio) {
+        setForm({ twilio_sid: data.twilio_sid, twilio_token: data.twilio_token, twilio_number: data.twilio_number })
+      } else {
+        setForm({ stripe_secret: data.stripe_secret, stripe_publishable: data.stripe_publishable, stripe_webhook: data.stripe_webhook })
+      }
+    }).catch(() => {})
+  }, [section])
+
+  async function save() {
+    setSaving(true)
+    try {
+      const result = await api.put('/sms/credentials', form)
+      toast.success(`Credentials saved (${result.saved?.length || 0} updated)`)
+      // Reload masked values
+      const data = await api.get('/sms/credentials')
+      setCreds(data)
+      if (isTwilio) setForm({ twilio_sid: data.twilio_sid, twilio_token: data.twilio_token, twilio_number: data.twilio_number })
+      else setForm({ stripe_secret: data.stripe_secret, stripe_publishable: data.stripe_publishable, stripe_webhook: data.stripe_webhook })
+      setShow({})
+      if (onSaved) onSaved()
+    } catch (err) { toast.error(err.message) }
+    finally { setSaving(false) }
+  }
+
+  function toggleShow(k) { setShow(s => ({ ...s, [k]: !s[k] })) }
+  function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
+
+  const fields = isTwilio ? [
+    { key: 'twilio_sid', label: 'Account SID', placeholder: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', mono: true },
+    { key: 'twilio_token', label: 'Auth Token', placeholder: 'your auth token', secret: true },
+    { key: 'twilio_number', label: 'Phone Number', placeholder: '+1XXXXXXXXXX', mono: true },
+  ] : [
+    { key: 'stripe_secret', label: 'Secret Key', placeholder: 'sk_live_xxxxxxxxxxxxxxxxxxxx', secret: true },
+    { key: 'stripe_publishable', label: 'Publishable Key', placeholder: 'pk_live_xxxxxxxxxxxxxxxxxxxx', mono: true },
+    { key: 'stripe_webhook', label: 'Webhook Secret', placeholder: 'whsec_xxxxxxxxxxxxxxxxxxxx', secret: true },
+  ]
+
+  return (
+    <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
+      <button
+        onClick={() => setExpanded(e => !e)}
+        style={{ width: '100%', background: 'none', border: 'none', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', color: 'var(--text2)', fontSize: 13 }}
+      >
+        <span>✏ Edit {isTwilio ? 'Twilio' : 'Stripe'} Credentials</span>
+        <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{expanded ? '▲' : '▼'}</span>
+      </button>
+      {expanded && (
+        <div style={{ padding: '0 16px 16px', borderTop: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 11, color: 'var(--text3)', margin: '12px 0 14px' }}>
+            Masked fields (••••) are already set — only enter a new value to change them.
+          </div>
+          <div className="form-grid" style={{ gap: 12 }}>
+            {fields.map(f => (
+              <div className="form-group" key={f.key}>
+                <label>{f.label}</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type={f.secret && !show[f.key] ? 'password' : 'text'}
+                    value={form[f.key] || ''}
+                    onChange={e => set(f.key, e.target.value)}
+                    placeholder={f.placeholder}
+                    style={{ fontFamily: f.mono ? 'var(--mono)' : 'var(--sans)', fontSize: 12 }}
+                  />
+                  {f.secret && (
+                    <button type="button" className="btn-ghost btn-sm" onClick={() => toggleShow(f.key)} style={{ flexShrink: 0, minWidth: 36 }}>
+                      {show[f.key] ? '🙈' : '👁'}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <button className="btn-primary btn-sm" onClick={save} disabled={saving} style={{ marginTop: 16 }}>
+            {saving ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '✓ Save Credentials'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

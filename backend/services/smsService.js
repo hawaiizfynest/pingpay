@@ -1,13 +1,12 @@
 const twilio = require('twilio');
 const { getDb } = require('../db/database');
 
-let client;
-
 function getTwilioClient() {
-  if (!client) {
-    client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-  }
-  return client;
+  const { getCredential } = require('./credentials');
+  const sid = getCredential('cred_twilio_sid', 'TWILIO_ACCOUNT_SID');
+  const token = getCredential('cred_twilio_token', 'TWILIO_AUTH_TOKEN');
+  // Always create a fresh client so DB credential changes take effect immediately
+  return twilio(sid, token);
 }
 
 function getSettings() {
@@ -20,12 +19,14 @@ async function sendSms(to, body, customerId = null) {
   const db = getDb();
   const normalized = normalizePhone(to);
 
-  console.log(`[SMS] Sending to ${normalized} from ${process.env.TWILIO_PHONE_NUMBER}`);
+  const { getCredential } = require('./credentials');
+  const fromNumber = getCredential('cred_twilio_number', 'TWILIO_PHONE_NUMBER');
+  console.log(`[SMS] Sending to ${normalized} from ${fromNumber}`);
 
   try {
     const msg = await getTwilioClient().messages.create({
       body,
-      from: process.env.TWILIO_PHONE_NUMBER,
+      from: fromNumber,
       to: normalized,
     });
 
