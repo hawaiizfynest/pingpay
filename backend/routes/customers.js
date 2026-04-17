@@ -66,10 +66,15 @@ router.put('/:id', auth, (req, res) => {
   }
 });
 
-// DELETE customer
+// DELETE customer (cascades to invoices and sms_log)
 router.delete('/:id', auth, (req, res) => {
   const db = getDb();
-  db.prepare('DELETE FROM customers WHERE id = ?').run(req.params.id);
+  const del = db.transaction((id) => {
+    db.prepare('DELETE FROM sms_log WHERE customer_id = ?').run(id);
+    db.prepare('DELETE FROM invoices WHERE customer_id = ?').run(id);
+    db.prepare('DELETE FROM customers WHERE id = ?').run(id);
+  });
+  del(req.params.id);
   res.json({ success: true });
 });
 
