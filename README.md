@@ -1,6 +1,6 @@
 # PingPay — SMS Billing System
 
-A self-hosted billing and SMS reminder system for NAS service providers. Customers interact entirely through text messages — no app or account needed. You manage everything through a private admin panel at `https://pingpay.cc`.
+A self-hosted billing and SMS reminder system for NAS service providers. Customers interact entirely through text messages — no app or account needed. You manage everything through a private admin panel.
 
 ---
 
@@ -51,12 +51,12 @@ Customers also receive automatic texts:
 
 ## Setup
 
-### 1. Point pingpay.cc to your NAS
+### 1. Point your domain to your NAS
 
-1. In Namecheap, set nameservers to Cloudflare's (e.g. `lena.ns.cloudflare.com` / `miles.ns.cloudflare.com`)
-2. In Cloudflare, add `pingpay.cc` as a site
+1. In your domain registrar, set nameservers to Cloudflare's
+2. In Cloudflare, add your domain as a site
 3. In your Cloudflare tunnel, add a public hostname:
-   - **Domain**: `pingpay.cc`
+   - **Domain**: `yourdomain.com`
    - **Service**: `http://localhost:3500`
 
 That's the only tunnel entry needed — nginx handles routing from there.
@@ -77,13 +77,15 @@ ADMIN_PASSWORD=your_secure_password
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 TWILIO_AUTH_TOKEN=your_auth_token
 TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
+PUBLIC_URL=https://yourdomain.com
+CORS_ORIGIN=https://yourdomain.com
 ```
 
 ### 3. Get a Twilio number
 
 1. Sign up at [console.twilio.com](https://console.twilio.com)
 2. Buy a phone number with SMS capability (~$1/month)
-3. Set the inbound webhook to: `https://pingpay.cc/api/sms/inbound` (HTTP POST)
+3. Set the inbound webhook to: `https://yourdomain.com/api/sms/inbound` (HTTP POST)
 
 ### 4. Deploy on QNAP
 
@@ -93,14 +95,11 @@ cd /share/Container/pingpay
 docker-compose up -d
 ```
 
-- Admin panel: `https://pingpay.cc`
-- Twilio webhook: `https://pingpay.cc/api/sms/inbound`
-
 **Important**: Never use `docker-compose down` — use `docker restart pingpay-backend` to avoid volume data loss.
 
 ### 5. First login
 
-Default credentials: `admin` / whatever you set as `ADMIN_PASSWORD`
+Default credentials: `admin` / whatever you set as `ADMIN_PASSWORD`  
 **Change your password immediately** in Settings after first login.
 
 ---
@@ -131,7 +130,7 @@ pingpay/
 │   └── nginx.conf              # Reverse proxy — /api → backend, / → frontend
 ├── backend/
 │   ├── db/database.js          # SQLite schema + init
-│   ├── middleware/auth.js       # JWT middleware
+│   ├── middleware/auth.js      # JWT middleware
 │   ├── routes/
 │   │   ├── auth.js             # Login, password change
 │   │   ├── customers.js        # Customer CRUD + SMS
@@ -150,6 +149,7 @@ pingpay/
 │   │   ├── hooks/useApi.js     # API client
 │   │   └── App.jsx
 │   └── Dockerfile
+├── .gitignore
 ├── docker-compose.yml
 └── README.md
 ```

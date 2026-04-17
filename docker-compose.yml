@@ -16,12 +16,9 @@ services:
       - pingpay-net
 
   pingpay-backend:
-    image: node:20-alpine
+    image: ghcr.io/hawaiizfynest/pingpay-backend:latest
     container_name: pingpay-backend
-    working_dir: /app
-    command: sh -c "npm install && node server.js"
     volumes:
-      - ./backend:/app
       - pingpay-data:/data
     environment:
       - NODE_ENV=production
@@ -32,23 +29,15 @@ services:
       - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
       - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
-      - PUBLIC_URL=https://pingpay.cc
-      - CORS_ORIGIN=https://pingpay.cc
+      - PUBLIC_URL=${PUBLIC_URL}
+      - CORS_ORIGIN=${CORS_ORIGIN}
     restart: unless-stopped
     networks:
       - pingpay-net
 
   pingpay-frontend:
-    image: node:20-alpine
+    image: ghcr.io/hawaiizfynest/pingpay-frontend:latest
     container_name: pingpay-frontend
-    working_dir: /app
-    command: sh -c "npm install && npm run build && npx serve -s dist -l 3002"
-    volumes:
-      - ./frontend:/app
-    environment:
-      - VITE_API_URL=/api
-    depends_on:
-      - pingpay-backend
     restart: unless-stopped
     networks:
       - pingpay-net
