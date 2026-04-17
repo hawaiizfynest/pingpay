@@ -93,3 +93,5 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           platforms: linux/amd64
           no-cache: true
+          build-args: |
+            BUILDTIME=${{ github.run_id }}
