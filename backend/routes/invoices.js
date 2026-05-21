@@ -1,7 +1,7 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const { getDb } = require('../db/database');
-const { sendPaymentConfirmation } = require('../services/smsService');
+const { sendPaymentConfirmation } = require('../services/notifyService');
 
 const router = express.Router();
 
@@ -10,7 +10,7 @@ router.get('/', auth, (req, res) => {
   const db = getDb();
   const { status, customer_id } = req.query;
   let query = `
-    SELECT i.*, c.name as customer_name, c.phone, p.name as plan_name
+    SELECT i.*, c.name as customer_name, c.phone, c.email, p.name as plan_name
     FROM invoices i
     JOIN customers c ON c.id = i.customer_id
     LEFT JOIN plans p ON p.id = c.plan_id
@@ -57,12 +57,12 @@ router.put('/:id/pay', auth, async (req, res) => {
     db.prepare('UPDATE customers SET next_due_date = ? WHERE id = ?').run(nextDue, customer.id);
   }
 
-  // Send receipt via SMS
+  // Send receipt via email or SMS based on customer preference
   if (send_receipt !== false && customer) {
     try {
       await sendPaymentConfirmation(customer, { ...invoice, payment_method: payment_method || invoice.payment_method });
     } catch (err) {
-      console.error('Receipt SMS failed:', err.message);
+      console.error('Receipt notification failed:', err.message);
     }
   }
 

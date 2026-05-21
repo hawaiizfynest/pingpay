@@ -8,6 +8,7 @@ const STATUS_BADGE = {
   cancelled: 'badge-gray',
 }
 const METHOD_LABEL = { zelle: '💳 Zelle', cash: '💵 Cash', apple_pay: '🍎 Apple Pay', card: '💳 Card (Stripe)' }
+const CHANNEL_LABEL = { email: '✉ Email', sms: '💬 SMS' }
 
 function normalizePhone(raw) {
   const digits = raw.replace(/\D/g, '')
@@ -22,7 +23,7 @@ export default function Customers() {
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [modal, setModal] = useState(null) // null | 'add' | 'edit' | 'sms' | 'view'
+  const [modal, setModal] = useState(null)
   const [selected, setSelected] = useState(null)
 
   useEffect(() => { load() }, [])
@@ -53,7 +54,8 @@ export default function Customers() {
 
   const filtered = customers.filter(c =>
     !search || c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.phone.includes(search) || c.plan_name?.toLowerCase().includes(search.toLowerCase())
+    c.phone.includes(search) || c.email?.toLowerCase().includes(search.toLowerCase()) ||
+    c.plan_name?.toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -64,7 +66,7 @@ export default function Customers() {
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <input placeholder="Search by name, phone, or plan..." value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 340 }} />
+        <input placeholder="Search by name, phone, email, or plan..." value={search} onChange={e => setSearch(e.target.value)} style={{ maxWidth: 340 }} />
       </div>
 
       {loading ? (
@@ -77,7 +79,8 @@ export default function Customers() {
             <thead>
               <tr>
                 <th>Name</th>
-                <th>Phone</th>
+                <th>Contact</th>
+                <th>Channel</th>
                 <th>Plan</th>
                 <th>Next Due</th>
                 <th>Balance</th>
@@ -90,7 +93,12 @@ export default function Customers() {
               {filtered.map(c => (
                 <tr key={c.id}>
                   <td style={{ color: 'var(--text)', fontWeight: 500 }}>{c.name}</td>
-                  <td className="mono" style={{ fontSize: 12 }}>{c.phone}</td>
+                  <td className="mono" style={{ fontSize: 11 }}>
+                    {c.email || ''}
+                    {c.email && c.phone && <br />}
+                    {c.phone || ''}
+                  </td>
+                  <td style={{ fontSize: 12 }}>{CHANNEL_LABEL[c.notification_channel] || CHANNEL_LABEL.email}</td>
                   <td>{c.plan_name || <span style={{ color: 'var(--text3)' }}>—</span>}</td>
                   <td className="mono" style={{ fontSize: 12 }}>{c.next_due_date}</td>
                   <td>
@@ -103,7 +111,7 @@ export default function Customers() {
                   <td>
                     <div style={{ display: 'flex', gap: 6 }}>
                       <button className="btn-ghost btn-sm" onClick={() => openView(c)} title="View">👁</button>
-                      <button className="btn-ghost btn-sm" onClick={() => openSms(c)} title="Send SMS">💬</button>
+                      <button className="btn-ghost btn-sm" onClick={() => openSms(c)} title="Send message">✉</button>
                       <button className="btn-ghost btn-sm" onClick={() => openEdit(c)} title="Edit">✏</button>
                       <button className="btn-danger btn-sm" onClick={() => handleDelete(c)} title="Delete">✕</button>
                     </div>
@@ -116,16 +124,9 @@ export default function Customers() {
       )}
 
       {(modal === 'add' || modal === 'edit') && (
-        <CustomerModal
-          customer={selected}
-          plans={plans}
-          onClose={close}
-          onSave={() => { close(); load() }}
-        />
+        <CustomerModal customer={selected} plans={plans} onClose={close} onSave={() => { close(); load() }} />
       )}
-      {modal === 'sms' && selected && (
-        <SendSmsModal customer={selected} onClose={close} />
-      )}
+      {modal === 'sms' && selected && <SendSmsModal customer={selected} onClose={close} />}
       {modal === 'view' && selected && (
         <ViewCustomerModal customer={selected} onClose={close} onEdit={() => { setModal('edit') }} />
       )}
@@ -144,6 +145,7 @@ function CustomerModal({ customer, plans, onClose, onSave }) {
     next_due_date: customer?.next_due_date || new Date().toISOString().split('T')[0],
     status: customer?.status || 'active',
     payment_method: customer?.payment_method || 'zelle',
+    notification_channel: customer?.notification_channel || 'email',
     notes: customer?.notes || '',
   })
   const [saving, setSaving] = useState(false)
@@ -152,6 +154,7 @@ function CustomerModal({ customer, plans, onClose, onSave }) {
 
   async function handleSave() {
     if (!form.name || !form.phone) return toast.error('Name and phone required')
+    if (form.notification_channel === 'email' && !form.email) return toast.error('Email required for email notifications')
     const normalized = normalizePhone(form.phone)
     if (normalized.length < 10) return toast.error('Invalid phone number')
     setSaving(true)
@@ -187,17 +190,20 @@ function CustomerModal({ customer, plans, onClose, onSave }) {
           </div>
 
           <div className="form-group">
-            <label>Email</label>
+            <label>Email {form.notification_channel === 'email' && <span style={{ color: 'var(--accent)' }}>*</span>}</label>
             <input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="john@example.com" />
           </div>
 
           <div className="form-grid form-grid-2">
             <div className="form-group">
-              <label>Service Plan</label>
-              <select value={form.plan_id} onChange={e => set('plan_id', e.target.value)}>
-                <option value="">— No plan —</option>
-                {plans.map(p => <option key={p.id} value={p.id}>{p.name} (${p.price}/{p.billing_cycle})</option>)}
+              <label>Notification Channel</label>
+              <select value={form.notification_channel} onChange={e => set('notification_channel', e.target.value)}>
+                <option value="email">✉ Email</option>
+                <option value="sms">💬 SMS</option>
               </select>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                How customer receives reminders & receipts
+              </div>
             </div>
             <div className="form-group">
               <label>Payment Method</label>
@@ -212,8 +218,11 @@ function CustomerModal({ customer, plans, onClose, onSave }) {
 
           <div className="form-grid form-grid-2">
             <div className="form-group">
-              <label>Next Due Date *</label>
-              <input type="date" value={form.next_due_date} onChange={e => set('next_due_date', e.target.value)} />
+              <label>Service Plan</label>
+              <select value={form.plan_id} onChange={e => set('plan_id', e.target.value)}>
+                <option value="">— No plan —</option>
+                {plans.map(p => <option key={p.id} value={p.id}>{p.name} (${p.price}/{p.billing_cycle})</option>)}
+              </select>
             </div>
             <div className="form-group">
               <label>Status</label>
@@ -223,6 +232,11 @@ function CustomerModal({ customer, plans, onClose, onSave }) {
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
+          </div>
+
+          <div className="form-group">
+            <label>Next Due Date *</label>
+            <input type="date" value={form.next_due_date} onChange={e => set('next_due_date', e.target.value)} />
           </div>
 
           <div className="form-group">
@@ -244,14 +258,17 @@ function CustomerModal({ customer, plans, onClose, onSave }) {
 
 function SendSmsModal({ customer, onClose }) {
   const [msg, setMsg] = useState('')
+  const [subject, setSubject] = useState('')
   const [sending, setSending] = useState(false)
+  const isEmail = customer.notification_channel === 'email'
 
   async function send() {
     if (!msg.trim()) return toast.error('Message required')
+    if (isEmail && !subject.trim()) return toast.error('Subject required for email')
     setSending(true)
     try {
-      await api.post(`/customers/${customer.id}/sms`, { message: msg })
-      toast.success('SMS sent!')
+      await api.post(`/customers/${customer.id}/sms`, { message: msg, subject })
+      toast.success(`${isEmail ? 'Email' : 'SMS'} sent!`)
       onClose()
     } catch (err) { toast.error(err.message) }
     finally { setSending(false) }
@@ -268,7 +285,7 @@ function SendSmsModal({ customer, onClose }) {
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal">
         <div className="modal-header">
-          <h2>Send SMS to {customer.name}</h2>
+          <h2>Send {isEmail ? 'Email' : 'SMS'} to {customer.name}</h2>
           <button className="btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
 
@@ -283,16 +300,25 @@ function SendSmsModal({ customer, onClose }) {
           </div>
         </div>
 
+        {isEmail && (
+          <div className="form-group">
+            <label>Subject</label>
+            <input value={subject} onChange={e => setSubject(e.target.value)} placeholder="Message subject..." />
+          </div>
+        )}
+
         <div className="form-group">
           <label>Message</label>
           <textarea rows={4} value={msg} onChange={e => setMsg(e.target.value)} placeholder="Type a custom message..." style={{ resize: 'vertical' }} />
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>{msg.length} chars — To: {customer.phone}</div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+            {msg.length} chars — To: {isEmail ? customer.email : customer.phone}
+          </div>
         </div>
 
         <div className="modal-footer">
           <button className="btn-ghost" onClick={onClose}>Cancel</button>
           <button className="btn-primary" onClick={send} disabled={sending || !msg.trim()}>
-            {sending ? <span className="spinner" /> : '↑ Send SMS'}
+            {sending ? <span className="spinner" /> : `↑ Send ${isEmail ? 'Email' : 'SMS'}`}
           </button>
         </div>
       </div>
@@ -311,7 +337,7 @@ function ViewCustomerModal({ customer, onClose, onEdit }) {
   }, [customer.id])
 
   async function markPaid(inv) {
-    const method = prompt('Payment method? (zelle / apple_pay / cash)', customer.payment_method)
+    const method = prompt('Payment method? (zelle / apple_pay / cash / card)', customer.payment_method)
     if (!method) return
     try {
       await api.put(`/invoices/${inv.id}/pay`, { payment_method: method, send_receipt: true })
@@ -326,7 +352,10 @@ function ViewCustomerModal({ customer, onClose, onEdit }) {
         <div className="modal-header">
           <div>
             <h2>{customer.name}</h2>
-            <div style={{ color: 'var(--text3)', fontSize: 12 }}>{customer.phone} · {customer.plan_name || 'No plan'}</div>
+            <div style={{ color: 'var(--text3)', fontSize: 12 }}>
+              {customer.email && <span>{customer.email} · </span>}
+              {customer.phone} · {customer.plan_name || 'No plan'} · {CHANNEL_LABEL[customer.notification_channel] || 'Email'}
+            </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn-ghost btn-sm" onClick={onEdit}>✏ Edit</button>
@@ -339,7 +368,7 @@ function ViewCustomerModal({ customer, onClose, onEdit }) {
             <button key={t} onClick={() => setTab(t)}
               className={tab === t ? 'btn-primary btn-sm' : 'btn-ghost btn-sm'}
               style={{ textTransform: 'capitalize' }}>
-              {t === 'invoices' ? `Invoices (${invoices.length})` : `SMS Log (${smsLog.length})`}
+              {t === 'invoices' ? `Invoices (${invoices.length})` : `Messages (${smsLog.length})`}
             </button>
           ))}
         </div>
@@ -368,7 +397,7 @@ function ViewCustomerModal({ customer, onClose, onEdit }) {
 
         {tab === 'sms' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: 360, overflowY: 'auto' }}>
-            {smsLog.length === 0 && <div className="empty"><div>No SMS history</div></div>}
+            {smsLog.length === 0 && <div className="empty"><div>No message history</div></div>}
             {smsLog.map(s => (
               <div key={s.id} style={{
                 padding: '10px 14px',

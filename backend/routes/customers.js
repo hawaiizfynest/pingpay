@@ -31,15 +31,22 @@ router.get('/:id', auth, (req, res) => {
 
 // POST create customer
 router.post('/', auth, (req, res) => {
-  const { name, phone, email, plan_id, billing_day, next_due_date, status, payment_method, notes } = req.body;
+  const {
+    name, phone, email, plan_id, billing_day, next_due_date,
+    status, payment_method, notes, notification_channel,
+  } = req.body;
   if (!name || !phone || !next_due_date) return res.status(400).json({ error: 'name, phone, next_due_date required' });
 
   const db = getDb();
   try {
     const result = db.prepare(`
-      INSERT INTO customers (name, phone, email, plan_id, billing_day, next_due_date, status, payment_method, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(name, phone, email || null, plan_id || null, billing_day || 1, next_due_date, status || 'active', payment_method || 'zelle', notes || null);
+      INSERT INTO customers (name, phone, email, plan_id, billing_day, next_due_date, status, payment_method, notes, notification_channel)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      name, phone, email || null, plan_id || null, billing_day || 1,
+      next_due_date, status || 'active', payment_method || 'zelle',
+      notes || null, notification_channel || 'email'
+    );
 
     res.json({ id: result.lastInsertRowid, success: true });
   } catch (err) {
@@ -50,14 +57,21 @@ router.post('/', auth, (req, res) => {
 
 // PUT update customer
 router.put('/:id', auth, (req, res) => {
-  const { name, phone, email, plan_id, billing_day, next_due_date, status, payment_method, notes } = req.body;
+  const {
+    name, phone, email, plan_id, billing_day, next_due_date,
+    status, payment_method, notes, notification_channel,
+  } = req.body;
   const db = getDb();
 
   try {
     db.prepare(`
-      UPDATE customers SET name=?, phone=?, email=?, plan_id=?, billing_day=?, next_due_date=?, 
-      status=?, payment_method=?, notes=?, updated_at=CURRENT_TIMESTAMP WHERE id=?
-    `).run(name, phone, email || null, plan_id || null, billing_day || 1, next_due_date, status, payment_method, notes || null, req.params.id);
+      UPDATE customers SET name=?, phone=?, email=?, plan_id=?, billing_day=?, next_due_date=?,
+      status=?, payment_method=?, notes=?, notification_channel=?, updated_at=CURRENT_TIMESTAMP WHERE id=?
+    `).run(
+      name, phone, email || null, plan_id || null, billing_day || 1,
+      next_due_date, status, payment_method, notes || null,
+      notification_channel || 'email', req.params.id
+    );
 
     res.json({ success: true });
   } catch (err) {
@@ -92,18 +106,28 @@ router.get('/:id/sms', auth, (req, res) => {
   res.json(logs);
 });
 
-// POST send manual SMS to customer
+// POST send manual message to customer (email or SMS based on preference)
 router.post('/:id/sms', auth, async (req, res) => {
-  const { message } = req.body;
+  const { message, subject } = req.body;
   if (!message) return res.status(400).json({ error: 'message required' });
 
   const db = getDb();
   const customer = db.prepare('SELECT * FROM customers WHERE id = ?').get(req.params.id);
   if (!customer) return res.status(404).json({ error: 'Not found' });
 
-  const { sendSms } = require('../services/smsService');
-  await sendSms(customer.phone, message, customer.id);
-  res.json({ success: true });
+  const { getCustomerChannel } = require('../services/notifyService');
+  const channel = getCustomerChannel(customer);
+
+  if (channel === 'email') {
+    const { sendEmail } = require('../services/emailService');
+    await sendEmail(customer.email, subject || `Message from ${require('../services/credentials').getCredential('business_name', '') || 'PingPay'}`, message, customer.id);
+  } else if (channel === 'sms') {
+    const { sendSms } = require('../services/smsService');
+    await sendSms(customer.phone, message, customer.id);
+  } else {
+    return res.status(400).json({ error: 'Customer has no email or phone configured' });
+  }
+  res.json({ success: true, channel });
 });
 
 module.exports = router;

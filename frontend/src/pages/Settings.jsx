@@ -72,6 +72,24 @@ export default function Settings() {
         <div className="page-title">Settings</div>
       </div>
 
+      {/* === EMAIL — Resend === */}
+      <section style={{ marginBottom: 32 }}>
+        <h3 style={{ color: 'var(--text2)', marginBottom: 16, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+          Email — Resend
+        </h3>
+        <ResendStatus />
+        <div style={{ marginTop: 16 }}>
+          <CredentialEditor section="resend" onSaved={() => {}} />
+        </div>
+        <TestEmailBox />
+        <div style={{ marginTop: 14, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: 16, fontSize: 12, color: 'var(--text3)' }}>
+          <p style={{ marginBottom: 6 }}>Verified domain required at <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent)' }}>resend.com</span></p>
+          <p style={{ marginBottom: 6 }}>From address: <span style={{ fontFamily: 'var(--mono)' }}>billing@yourdomain.com</span></p>
+          <p>Set up Cloudflare Email Routing for free reply forwarding</p>
+        </div>
+      </section>
+
+      {/* === TWILIO === */}
       <section style={{ marginBottom: 32 }}>
         <h3 style={{ color: 'var(--text2)', marginBottom: 16, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
           Twilio Account
@@ -119,7 +137,7 @@ export default function Settings() {
           <div className="form-group">
             <label>Business Name</label>
             <input value={settings.business_name || ''} onChange={e => set('business_name', e.target.value)} placeholder="My NAS Services" />
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Appears in all SMS messages sent to customers</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Appears in all messages sent to customers</div>
           </div>
           <div className="form-grid form-grid-2">
             <div className="form-group">
@@ -172,7 +190,6 @@ export default function Settings() {
         </button>
       </div>
 
-
       <section style={{ marginBottom: 32 }}>
         <h3 style={{ color: 'var(--text2)', marginBottom: 16, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
           Stripe — Card Payments
@@ -207,20 +224,6 @@ export default function Settings() {
           </button>
         </div>
       </section>
-
-      <section>
-        <h3 style={{ color: 'var(--text2)', marginBottom: 12, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>Twilio Setup</h3>
-        <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: 16, fontSize: 12, color: 'var(--text3)' }}>
-          <p style={{ marginBottom: 8 }}>Configure in your <span style={{ fontFamily: 'var(--mono)' }}>.env</span> file:</p>
-          <pre style={{ fontFamily: 'var(--mono)', fontSize: 11, lineHeight: 1.8, color: 'var(--text2)' }}>
-{`TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=your_auth_token
-TWILIO_PHONE_NUMBER=+1XXXXXXXXXX
-PUBLIC_URL=https://your-domain.com`}
-          </pre>
-          <p style={{ marginTop: 10 }}>Inbound webhook: <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent)' }}>https://your-domain.com/api/sms/inbound</span></p>
-        </div>
-      </section>
     </div>
   )
 }
@@ -250,7 +253,7 @@ function StripeStatus() {
   if (!config.configured) {
     return (
       <div style={{ background: 'rgba(167,139,250,0.06)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: 6, padding: '14px 16px', fontSize: 13, color: 'var(--purple)' }}>
-        ◎ Stripe not configured — add your keys to .env to enable card payments
+        ◎ Stripe not configured — add your keys below to enable card payments
       </div>
     )
   }
@@ -263,10 +266,65 @@ function StripeStatus() {
   )
 }
 
+function ResendStatus() {
+  const [config, setConfig] = useState(null)
+  useEffect(() => {
+    api.get('/email/status').then(setConfig).catch(() => setConfig({ configured: false }))
+  }, [])
+
+  if (!config) return <span className="spinner" style={{ width: 14, height: 14 }} />
+
+  if (!config.configured) {
+    return (
+      <div style={{ background: 'rgba(0,212,255,0.06)', border: '1px solid rgba(0,212,255,0.2)', borderRadius: 6, padding: '14px 16px', fontSize: 13, color: 'var(--accent)' }}>
+        ✉ Resend not configured — add your API key below to enable email delivery
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+      <TwilioCard label="Email Service" value="Active" icon="✉" color="var(--green)" />
+      <TwilioCard label="From Address" value={config.from_email || 'Not set'} icon="📧" mono color={config.from_email ? 'var(--text)' : 'var(--yellow)'} />
+    </div>
+  )
+}
+
+function TestEmailBox() {
+  const [email, setEmail] = useState('')
+  const [sending, setSending] = useState(false)
+
+  async function send() {
+    if (!email || !email.includes('@')) return toast.error('Valid email required')
+    setSending(true)
+    try {
+      await api.post('/email/test', { to: email })
+      toast.success('Test email sent! Check your inbox.')
+      setEmail('')
+    } catch (err) { toast.error(err.message) }
+    finally { setSending(false) }
+  }
+
+  return (
+    <div style={{ marginTop: 16, background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, padding: 14 }}>
+      <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8, fontWeight: 600 }}>Send test email</div>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          type="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          placeholder="your@email.com"
+          style={{ flex: 1 }}
+        />
+        <button className="btn-primary btn-sm" onClick={send} disabled={sending}>
+          {sending ? <span className="spinner" style={{ width: 14, height: 14 }} /> : '↑ Send Test'}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function CredentialEditor({ section, onSaved }) {
-  const isTwilio = section === 'twilio'
-  const [creds, setCreds] = useState(null)
   const [form, setForm] = useState({})
   const [show, setShow] = useState({})
   const [saving, setSaving] = useState(false)
@@ -274,11 +332,12 @@ function CredentialEditor({ section, onSaved }) {
 
   useEffect(() => {
     api.get('/sms/credentials').then(data => {
-      setCreds(data)
-      if (isTwilio) {
+      if (section === 'twilio') {
         setForm({ twilio_sid: data.twilio_sid, twilio_token: data.twilio_token, twilio_number: data.twilio_number })
-      } else {
+      } else if (section === 'stripe') {
         setForm({ stripe_secret: data.stripe_secret, stripe_publishable: data.stripe_publishable, stripe_webhook: data.stripe_webhook })
+      } else if (section === 'resend') {
+        setForm({ resend_key: data.resend_key, resend_from: data.resend_from, resend_replyto: data.resend_replyto })
       }
     }).catch(() => {})
   }, [section])
@@ -288,11 +347,10 @@ function CredentialEditor({ section, onSaved }) {
     try {
       const result = await api.put('/sms/credentials', form)
       toast.success(`Credentials saved (${result.saved?.length || 0} updated)`)
-      // Reload masked values
       const data = await api.get('/sms/credentials')
-      setCreds(data)
-      if (isTwilio) setForm({ twilio_sid: data.twilio_sid, twilio_token: data.twilio_token, twilio_number: data.twilio_number })
-      else setForm({ stripe_secret: data.stripe_secret, stripe_publishable: data.stripe_publishable, stripe_webhook: data.stripe_webhook })
+      if (section === 'twilio') setForm({ twilio_sid: data.twilio_sid, twilio_token: data.twilio_token, twilio_number: data.twilio_number })
+      else if (section === 'stripe') setForm({ stripe_secret: data.stripe_secret, stripe_publishable: data.stripe_publishable, stripe_webhook: data.stripe_webhook })
+      else if (section === 'resend') setForm({ resend_key: data.resend_key, resend_from: data.resend_from, resend_replyto: data.resend_replyto })
       setShow({})
       if (onSaved) onSaved()
     } catch (err) { toast.error(err.message) }
@@ -302,15 +360,21 @@ function CredentialEditor({ section, onSaved }) {
   function toggleShow(k) { setShow(s => ({ ...s, [k]: !s[k] })) }
   function set(k, v) { setForm(f => ({ ...f, [k]: v })) }
 
-  const fields = isTwilio ? [
+  const fields = section === 'twilio' ? [
     { key: 'twilio_sid', label: 'Account SID', placeholder: 'ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx', mono: true },
     { key: 'twilio_token', label: 'Auth Token', placeholder: 'your auth token', secret: true },
     { key: 'twilio_number', label: 'Phone Number', placeholder: '+1XXXXXXXXXX', mono: true },
-  ] : [
+  ] : section === 'stripe' ? [
     { key: 'stripe_secret', label: 'Secret Key', placeholder: 'sk_live_xxxxxxxxxxxxxxxxxxxx', secret: true },
     { key: 'stripe_publishable', label: 'Publishable Key', placeholder: 'pk_live_xxxxxxxxxxxxxxxxxxxx', mono: true },
     { key: 'stripe_webhook', label: 'Webhook Secret', placeholder: 'whsec_xxxxxxxxxxxxxxxxxxxx', secret: true },
+  ] : [
+    { key: 'resend_key', label: 'API Key', placeholder: 're_xxxxxxxxxxxxxxxxxxxx', secret: true },
+    { key: 'resend_from', label: 'From Email', placeholder: 'billing@yourdomain.com', mono: true },
+    { key: 'resend_replyto', label: 'Reply-To (optional)', placeholder: 'support@yourdomain.com', mono: true },
   ]
+
+  const label = section === 'twilio' ? 'Twilio' : section === 'stripe' ? 'Stripe' : 'Resend'
 
   return (
     <div style={{ background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden' }}>
@@ -318,7 +382,7 @@ function CredentialEditor({ section, onSaved }) {
         onClick={() => setExpanded(e => !e)}
         style={{ width: '100%', background: 'none', border: 'none', padding: '12px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', color: 'var(--text2)', fontSize: 13 }}
       >
-        <span>✏ Edit {isTwilio ? 'Twilio' : 'Stripe'} Credentials</span>
+        <span>✏ Edit {label} Credentials</span>
         <span style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{expanded ? '▲' : '▼'}</span>
       </button>
       {expanded && (
@@ -355,4 +419,3 @@ function CredentialEditor({ section, onSaved }) {
     </div>
   )
 }
-

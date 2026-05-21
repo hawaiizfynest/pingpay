@@ -1,7 +1,7 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const { getDb } = require('../db/database');
-const { sendPaymentConfirmation } = require('../services/smsService');
+const { sendPaymentConfirmation, sendPaymentLink } = require('../services/notifyService');
 
 const router = express.Router();
 
@@ -49,7 +49,6 @@ router.post('/checkout/:invoiceId', auth, async (req, res) => {
       cancel_url: `${process.env.PUBLIC_URL}/payment-cancelled`,
     });
 
-    // Store session ID on invoice
     db.prepare('UPDATE invoices SET stripe_session_id = ? WHERE id = ?').run(session.id, invoice.id);
 
     res.json({ url: session.url, session_id: session.id });
@@ -59,11 +58,11 @@ router.post('/checkout/:invoiceId', auth, async (req, res) => {
   }
 });
 
-// POST — send customer a payment link via SMS
+// POST — send customer a payment link (via email or SMS based on preference)
 router.post('/send-link/:invoiceId', auth, async (req, res) => {
   const db = getDb();
   const invoice = db.prepare(`
-    SELECT i.*, c.name as customer_name, c.phone, c.email
+    SELECT i.*, c.name as customer_name, c.phone, c.email, c.notification_channel
     FROM invoices i JOIN customers c ON c.id = i.customer_id
     WHERE i.id = ?
   `).get(req.params.invoiceId);
@@ -73,7 +72,6 @@ router.post('/send-link/:invoiceId', auth, async (req, res) => {
   try {
     const stripe = getStripe();
 
-    // Create or reuse session
     let sessionUrl;
     if (invoice.stripe_session_id) {
       try {
@@ -106,21 +104,21 @@ router.post('/send-link/:invoiceId', auth, async (req, res) => {
         },
         success_url: `${process.env.PUBLIC_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.PUBLIC_URL}/payment-cancelled`,
-        expires_at: Math.floor(Date.now() / 1000) + (24 * 60 * 60), // 24 hours
+        expires_at: Math.floor(Date.now() / 1000) + (24 * 60 * 60),
       });
       db.prepare('UPDATE invoices SET stripe_session_id = ? WHERE id = ?').run(session.id, invoice.id);
       sessionUrl = session.url;
     }
 
-    // Send SMS with link
-    const { sendSms } = require('../services/smsService');
-    const settings = Object.fromEntries(
-      db.prepare('SELECT key, value FROM settings').all().map(r => [r.key, r.value])
-    );
-    const businessName = settings.business_name || 'PingPay';
-
-    const msg = `💳 *${businessName} — Pay Online*\n\nHi ${invoice.customer_name},\n\nYour invoice of $${invoice.amount.toFixed(2)} is due ${invoice.due_date}.\n\nPay securely by card here:\n${sessionUrl}\n\nLink expires in 24 hours.`;
-    await sendSms(invoice.phone, msg, invoice.customer_id);
+    // Send via email or SMS based on customer preference
+    const customer = {
+      id: invoice.customer_id,
+      name: invoice.customer_name,
+      phone: invoice.phone,
+      email: invoice.email,
+      notification_channel: invoice.notification_channel,
+    };
+    await sendPaymentLink(customer, invoice, sessionUrl);
 
     res.json({ success: true, url: sessionUrl });
   } catch (err) {
@@ -170,7 +168,6 @@ async function handleStripePayment(session) {
   db.prepare(`UPDATE invoices SET status='paid', paid_date=?, payment_method='card', stripe_session_id=? WHERE id=?`)
     .run(today, session.id, invoiceId);
 
-  // Advance next_due_date
   const customer = db.prepare(`SELECT c.*, p.billing_cycle FROM customers c LEFT JOIN plans p ON p.id = c.plan_id WHERE c.id = ?`)
     .get(invoice.customer_id);
 
@@ -181,7 +178,7 @@ async function handleStripePayment(session) {
     try {
       await sendPaymentConfirmation(customer, { ...invoice, payment_method: 'card' });
     } catch (err) {
-      console.error('Receipt SMS after Stripe payment failed:', err.message);
+      console.error('Receipt notification after Stripe payment failed:', err.message);
     }
   }
 

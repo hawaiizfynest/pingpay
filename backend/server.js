@@ -10,6 +10,8 @@ const { startJobs } = require('./jobs/scheduler');
 const app = express();
 const PORT = process.env.PORT || 3500;
 
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*' }));
 app.use(express.json());
@@ -26,6 +28,7 @@ app.use('/api/invoices', require('./routes/invoices'));
 app.use('/api/plans', require('./routes/plans'));
 app.use('/api/sms', require('./routes/sms'));
 app.use('/api/stripe', require('./routes/stripe'));
+app.use('/api/email', require('./routes/email'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }));

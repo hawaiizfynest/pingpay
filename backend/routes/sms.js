@@ -83,7 +83,6 @@ router.get('/twilio-info', auth, async (req, res) => {
   try {
     const client = twilio(sid, token);
 
-    // Fetch balance and account info in parallel
     const [balance, account] = await Promise.all([
       client.balance.fetch(),
       client.api.accounts(sid).fetch(),
@@ -129,13 +128,20 @@ router.get('/credentials', auth, (req, res) => {
     stripe_secret: maskCredential(getCredential('cred_stripe_secret', 'STRIPE_SECRET_KEY')),
     stripe_publishable: maskCredential(getCredential('cred_stripe_publishable', 'STRIPE_PUBLISHABLE_KEY')),
     stripe_webhook: maskCredential(getCredential('cred_stripe_webhook', 'STRIPE_WEBHOOK_SECRET')),
+    resend_key: maskCredential(getCredential('cred_resend_key', 'RESEND_API_KEY')),
+    resend_from: getCredential('cred_resend_from', 'RESEND_FROM_EMAIL'),
+    resend_replyto: getCredential('cred_resend_replyto', 'RESEND_REPLY_TO'),
   });
 });
 
-// PUT credentials (only saves non-empty values)
+// PUT credentials (only saves non-empty, non-masked values)
 router.put('/credentials', auth, (req, res) => {
   const { saveCredentials } = require('../services/credentials');
-  const { twilio_sid, twilio_token, twilio_number, stripe_secret, stripe_publishable, stripe_webhook } = req.body;
+  const {
+    twilio_sid, twilio_token, twilio_number,
+    stripe_secret, stripe_publishable, stripe_webhook,
+    resend_key, resend_from, resend_replyto,
+  } = req.body;
   const toSave = {};
   if (twilio_sid && !twilio_sid.includes('•')) toSave.cred_twilio_sid = twilio_sid;
   if (twilio_token && !twilio_token.includes('•')) toSave.cred_twilio_token = twilio_token;
@@ -143,6 +149,9 @@ router.put('/credentials', auth, (req, res) => {
   if (stripe_secret && !stripe_secret.includes('•')) toSave.cred_stripe_secret = stripe_secret;
   if (stripe_publishable && !stripe_publishable.includes('•')) toSave.cred_stripe_publishable = stripe_publishable;
   if (stripe_webhook && !stripe_webhook.includes('•')) toSave.cred_stripe_webhook = stripe_webhook;
+  if (resend_key && !resend_key.includes('•')) toSave.cred_resend_key = resend_key;
+  if (resend_from) toSave.cred_resend_from = resend_from;
+  if (resend_replyto) toSave.cred_resend_replyto = resend_replyto;
   saveCredentials(toSave);
   res.json({ success: true, saved: Object.keys(toSave) });
 });
